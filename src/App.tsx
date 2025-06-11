@@ -1,19 +1,27 @@
-// App.tsx
+import { Canvas } from '@react-three/fiber';
+import { Suspense, useState } from 'react';
 
-import { Canvas } from '@react-three/fiber'
-import { Suspense } from 'react'
-
-import CameraProvider from './components/CameraProvider' // ✅
-import Scene from './components/Scene'
+import CameraProvider from './components/CameraProvider';
+import CameraSelector from './components/CameraSelector';
+import CustomCamera from './components/CustomCamera';
+import Scene from './components/Scene';
+import ViewCameraController from './components/ViewCameraController';
+import ViewSelector from './components/ViewSelector';
 
 export default function App() {
+  const [selectedView, setSelectedView] = useState('front');
+
   return (
     <CameraProvider>
-      <Canvas camera={{ position: [50, 10, -50], fov: 50 }}>
+      <CameraSelector />
+      <ViewSelector onChange={setSelectedView} />
+      <Canvas>
+        <CustomCamera />
+        <ViewCameraController view={selectedView} />
         <Suspense fallback={null}>
           <Scene />
         </Suspense>
       </Canvas>
     </CameraProvider>
-  )
+  );
 }

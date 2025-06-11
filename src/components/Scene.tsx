@@ -1,9 +1,13 @@
+//Scene.tsx
 import { useLoader, useThree } from '@react-three/fiber'
-import { useEffect } from 'react'
+import { gsap } from 'gsap'
+import { useContext, useEffect } from 'react'
 import * as THREE from 'three'
 import { RGBELoader } from 'three-stdlib'
 import { GLTFLoader } from 'three-stdlib'
 
+import { useCameraControl } from '../useCameraControl'
+import { CameraContext } from './CameraContext'
 import OrbitClickControls from './OrbitClickControls'
 
 function Model({ url }: { url: string }) {
@@ -12,9 +16,17 @@ function Model({ url }: { url: string }) {
 }
 
 export default function Scene() {
-  const { scene, gl } = useThree()
+  const { camera, gl, scene } = useThree()
   const hdrTexture = useLoader(RGBELoader, '/hdr/brown_photostudio_01_1k.hdr')
+  const { setCamera } = useContext(CameraContext)
+  const { registerCameraUpdater } = useCameraControl()
 
+  // Store the camera reference globally
+  useEffect(() => {
+    if (camera) setCamera(camera)
+  }, [camera, setCamera])
+
+  // Setup HDR environment
   useEffect(() => {
     if (!hdrTexture) return
 
@@ -29,16 +41,59 @@ export default function Scene() {
     return () => {
       scene.environment = null
       scene.background = null
+      envMap.dispose();
       hdrTexture.dispose()
-      envMap.dispose()
       pmremGenerator.dispose()
     }
   }, [hdrTexture, gl, scene])
 
+  // Register camera update logic
+  useEffect(() => {
+    const updater = (
+      targetPosition: THREE.Vector3,
+      upVector: THREE.Vector3,
+      duration: number,
+      lookAt?: THREE.Vector3
+    ) => {
+      gsap.to(camera.position, {
+        x: targetPosition.x,
+        y: targetPosition.y,
+        z: targetPosition.z,
+        duration: duration / 1000,
+        ease: 'power3.inOut',
+        onUpdate: () => {
+          camera.updateProjectionMatrix()
+        }
+      })
+
+      if (lookAt) {
+        const startLookAt = new THREE.Vector3()
+        camera.getWorldDirection(startLookAt)
+        const endLookAt = lookAt.clone().sub(camera.position).normalize()
+
+        const t = { alpha: 0 }
+        gsap.to(t, {
+          alpha: 1,
+          duration: duration / 1000,
+          ease: 'power3.inOut',
+          onUpdate: () => {
+            const dir = startLookAt.clone().lerp(endLookAt, t.alpha)
+            const target = camera.position.clone().add(dir)
+            camera.lookAt(target)
+          }
+        })
+      }
+
+      camera.up.copy(upVector)
+    }
+
+    registerCameraUpdater(updater)
+  }, [camera, registerCameraUpdater])
+
   return (
     <>
-      <Model url="/models/turtle.glb" />
       <OrbitClickControls />
+      <Model url="/models/turtle.glb" />
     </>
   )
 }
