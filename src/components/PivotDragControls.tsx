@@ -67,8 +67,8 @@ export default function PivotDragControls() {
     lastMouse.current = { x: e.clientX, y: e.clientY }
 
     const rotationSpeed = 0.01
-    const angleY = deltaX * -rotationSpeed
-    const angleX = deltaY * rotationSpeed
+    const angleY = deltaX * rotationSpeed
+    const angleX = deltaY * -rotationSpeed
 
     rotateAroundWorldPoint(
       activeMeshRef.current,
