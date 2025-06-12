@@ -153,11 +153,14 @@ const addListeners = () => {
       <OrbitControls
         ref={controlsRef}
         enableDamping={false}
+        // dampingFactor={0.1}
+        // rotateSpeed={0.5}
+        // panSpeed={0.5}
+        // enablePan={false}
         minPolarAngle={0}
         maxPolarAngle={Math.PI}
         enableZoom={true}
         screenSpacePanning={false}
-        enablePan={false} // ✅ Disable panning
       />
       {helperVisible && (
         <mesh ref={helperRef}>

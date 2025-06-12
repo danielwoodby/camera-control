@@ -1,4 +1,4 @@
-//Scene.tsx
+// Scene.tsx
 import { useLoader, useThree } from '@react-three/fiber'
 import { gsap } from 'gsap'
 import { useContext, useEffect } from 'react'
@@ -8,23 +8,54 @@ import { GLTFLoader } from 'three-stdlib'
 
 import { useCameraControl } from '../useCameraControl'
 import { CameraContext } from './CameraContext'
-import OrbitClickControls from './OrbitClickControls'
+import PivotDragControls from './PivotDragControls';
+
+function frameObject(object: THREE.Object3D, camera: THREE.Camera) {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+
+  if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+    const perspectiveCamera = camera as THREE.PerspectiveCamera;
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = perspectiveCamera.fov * (Math.PI / 180);
+    const cameraZ = Math.abs(maxDim / Math.sin(fov / 2));
+
+    perspectiveCamera.position.set(center.x - 30, center.y + 50, -cameraZ);
+    perspectiveCamera.lookAt(center);
+  } else if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
+    const orthoCamera = camera as THREE.OrthographicCamera;
+
+    const aspect = orthoCamera.right / orthoCamera.top;
+    const d = Math.max(size.x, size.y, size.z);
+
+    orthoCamera.left = -d * aspect;
+    orthoCamera.right = d * aspect;
+    orthoCamera.top = d;
+    orthoCamera.bottom = -d;
+    orthoCamera.position.set(center.x - 30, center.y + 50, center.z + 100);
+    orthoCamera.lookAt(center);
+    orthoCamera.updateProjectionMatrix();
+  }
+}
 
 function Model({ url }: { url: string }) {
   const gltf = useLoader(GLTFLoader, url)
+  const { camera } = useContext(CameraContext)
+
+  useEffect(() => {
+    if (!camera) return
+    frameObject(gltf.scene, camera)
+  }, [gltf, camera])
+
   return <primitive object={gltf.scene} scale={1} position={[0, 0, 0]} />
 }
 
 export default function Scene() {
-  const { camera, gl, scene } = useThree()
+  const { gl, scene } = useThree()
+  const { camera, setCamera } = useContext(CameraContext)
   const hdrTexture = useLoader(RGBELoader, '/hdr/brown_photostudio_01_1k.hdr')
-  const { setCamera } = useContext(CameraContext)
   const { registerCameraUpdater } = useCameraControl()
-
-  // Store the camera reference globally
-  useEffect(() => {
-    if (camera) setCamera(camera)
-  }, [camera, setCamera])
 
   // Setup HDR environment
   useEffect(() => {
@@ -47,8 +78,15 @@ export default function Scene() {
     }
   }, [hdrTexture, gl, scene])
 
-  // Register camera update logic
+  // Store the camera reference globally in context when it changes
   useEffect(() => {
+    if (camera) setCamera(camera)
+  }, [camera, setCamera])
+
+  // Register camera update logic for smooth transitions
+  useEffect(() => {
+    if (!camera) return
+
     const updater = (
       targetPosition: THREE.Vector3,
       upVector: THREE.Vector3,
@@ -92,8 +130,8 @@ export default function Scene() {
 
   return (
     <>
-      <OrbitClickControls />
       <Model url="/models/turtle.glb" />
+      <PivotDragControls/>
     </>
   )
 }
